@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Type
+from nerfstudio.utils.rich_utils import CONSOLE
 
 import torch
 
@@ -65,7 +66,10 @@ class SDFStudio(DataParser):
 
     def _generate_dataparser_outputs(self, split="train"):
         # load meta data
-        meta = load_from_json(self.config.data / "meta_data.json")
+        if self.config.data.suffix == ".json":
+            meta = load_from_json(self.config.data)
+        else:
+            meta = load_from_json(self.config.data / "meta_data.json")
 
         indices = list(range(len(meta["frames"])))
         # subsample to avoid out-of-memory for validation set
@@ -111,7 +115,7 @@ class SDFStudio(DataParser):
         camera_to_worlds = torch.stack(camera_to_worlds)
 
         # Convert from COLMAP's/OPENCV's camera coordinate system to nerfstudio
-        camera_to_worlds[:, 0:3, 1:3] *= -1
+        # camera_to_worlds[:, 0:3, 1:3] *= -1
 
         if self.config.auto_orient:
             camera_to_worlds, transform = camera_utils.auto_orient_and_center_poses(
@@ -121,10 +125,20 @@ class SDFStudio(DataParser):
             )
 
         # scene box from meta data
-        meta_scene_box = meta["scene_box"]
-        aabb = torch.tensor(meta_scene_box["aabb"], dtype=torch.float32)
+        # meta_scene_box = meta["scene_box"]
+        # aabb = torch.tensor(meta_scene_box["aabb"], dtype=torch.float32)
+        # scene_box = SceneBox(
+        #     aabb=aabb,
+        # )
+        aabb_scale = 20
         scene_box = SceneBox(
-            aabb=aabb,
+            aabb=torch.tensor(
+                [
+                    [-aabb_scale, -aabb_scale, 0],
+                    [aabb_scale, aabb_scale, 50],
+                ],
+                dtype=torch.float32,
+            )
         )
 
         height, width = meta["height"], meta["width"]

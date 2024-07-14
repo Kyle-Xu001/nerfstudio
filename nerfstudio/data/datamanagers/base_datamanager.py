@@ -187,10 +187,12 @@ class DataManager(nn.Module):
         super().__init__()
         self.train_count = 0
         self.eval_count = 0
+        CONSOLE.print("Set up train and eval dataset")
         if self.train_dataset and self.test_mode != "inference":
             self.setup_train()
         if self.eval_dataset and self.test_mode != "inference":
             self.setup_eval()
+        CONSOLE.print("Train and eval dataset setup")
 
     def forward(self):
         """Blank forward method
@@ -241,7 +243,8 @@ class DataManager(nn.Module):
     def setup_train(self):
         """Sets up the data manager for training.
 
-        Here you will define any subclass specific object attributes from the attribute"""
+        Here you will define any subclass specific object attributes from the attribute
+        """
 
     @abstractmethod
     def setup_eval(self):
@@ -486,8 +489,11 @@ class VanillaDataManager(DataManager, Generic[TDataset]):
             collate_fn=self.config.collate_fn,
             exclude_batch_keys_from_device=self.exclude_batch_keys_from_device,
         )
+        CONSOLE.print("Caching finished")
         self.iter_train_image_dataloader = iter(self.train_image_dataloader)
+        CONSOLE.print("Iter")
         self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch)
+        CONSOLE.print("Pixel sampler")
         self.train_camera_optimizer = self.config.camera_optimizer.setup(
             num_cameras=self.train_dataset.cameras.size, device=self.device
         )
@@ -495,6 +501,7 @@ class VanillaDataManager(DataManager, Generic[TDataset]):
             self.train_dataset.cameras.to(self.device),
             self.train_camera_optimizer,
         )
+        CONSOLE.print("Ray generator")
 
     def setup_eval(self):
         """Sets up the data loader for evaluation"""

@@ -20,6 +20,9 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from typing import Dict
+from nerfstudio.data.dataparsers.semantic_nerf_dataparser import (
+    SemanticNeRFDataParserConfig,
+)
 
 import tyro
 from nerfstudio.data.pixel_samplers import PairPixelSamplerConfig
@@ -28,14 +31,23 @@ from nerfstudio.cameras.camera_optimizers import CameraOptimizerConfig
 from nerfstudio.configs.base_config import ViewerConfig
 from nerfstudio.configs.external_methods import get_external_methods
 
-from nerfstudio.data.datamanagers.random_cameras_datamanager import RandomCamerasDataManagerConfig
-from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager, VanillaDataManagerConfig
+from nerfstudio.data.datamanagers.random_cameras_datamanager import (
+    RandomCamerasDataManagerConfig,
+)
+from nerfstudio.data.datamanagers.base_datamanager import (
+    VanillaDataManager,
+    VanillaDataManagerConfig,
+)
 
 from nerfstudio.data.dataparsers.blender_dataparser import BlenderDataParserConfig
 from nerfstudio.data.dataparsers.dnerf_dataparser import DNeRFDataParserConfig
-from nerfstudio.data.dataparsers.instant_ngp_dataparser import InstantNGPDataParserConfig
+from nerfstudio.data.dataparsers.instant_ngp_dataparser import (
+    InstantNGPDataParserConfig,
+)
 from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataParserConfig
-from nerfstudio.data.dataparsers.phototourism_dataparser import PhototourismDataParserConfig
+from nerfstudio.data.dataparsers.phototourism_dataparser import (
+    PhototourismDataParserConfig,
+)
 from nerfstudio.data.dataparsers.sdfstudio_dataparser import SDFStudioDataParserConfig
 from nerfstudio.data.dataparsers.sitcoms3d_dataparser import Sitcoms3DDataParserConfig
 from nerfstudio.data.datasets.depth_dataset import DepthDataset
@@ -72,6 +84,7 @@ descriptions = {
     "instant-ngp-bounded": "Implementation of Instant-NGP. Recommended for bounded real and synthetic scenes",
     "mipnerf": "High quality model for bounded scenes. (slow)",
     "semantic-nerfw": "Predicts semantic segmentations and filters out transient objects.",
+    "semantic-nerf": "Predicts semantic segmentations.",
     "vanilla-nerf": "Original NeRF model. (slow)",
     "tensorf": "tensorf",
     "dnerf": "Dynamic-NeRF model. (slow)",
@@ -176,8 +189,20 @@ method_configs["nerfacto-huge"] = TrainerConfig(
             num_nerf_samples_per_ray=64,
             num_proposal_samples_per_ray=(512, 512),
             proposal_net_args_list=[
-                {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 512, "use_linear": False},
-                {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 7, "max_res": 2048, "use_linear": False},
+                {
+                    "hidden_dim": 16,
+                    "log2_hashmap_size": 17,
+                    "num_levels": 5,
+                    "max_res": 512,
+                    "use_linear": False,
+                },
+                {
+                    "hidden_dim": 16,
+                    "log2_hashmap_size": 17,
+                    "num_levels": 7,
+                    "max_res": 2048,
+                    "use_linear": False,
+                },
             ],
             hidden_dim=256,
             hidden_dim_color=256,
@@ -215,7 +240,8 @@ method_configs["depth-nerfacto"] = TrainerConfig(
             train_num_rays_per_batch=4096,
             eval_num_rays_per_batch=4096,
             camera_optimizer=CameraOptimizerConfig(
-                mode="SO3xR3", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+                mode="SO3xR3",
+                optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2),
             ),
         ),
         model=DepthNerfactoModelConfig(eval_num_rays_per_chunk=1 << 15),
@@ -337,6 +363,35 @@ method_configs["semantic-nerfw"] = TrainerConfig(
     vis="viewer",
 )
 
+method_configs["semantic-nerf"] = TrainerConfig(
+    method_name="semantic-nerf",
+    steps_per_eval_batch=500,
+    steps_per_save=2000,
+    max_num_iterations=30000,
+    mixed_precision=True,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            _target=VanillaDataManager[SemanticDataset],
+            dataparser=SemanticNeRFDataParserConfig(),
+            train_num_rays_per_batch=4096,
+            eval_num_rays_per_batch=8192,
+        ),
+        model=SemanticNerfWModelConfig(eval_num_rays_per_chunk=1 << 16),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 16),
+    vis="viewer",
+)
+
 method_configs["vanilla-nerf"] = TrainerConfig(
     method_name="vanilla-nerf",
     pipeline=VanillaPipelineConfig(
@@ -421,7 +476,8 @@ method_configs["phototourism"] = TrainerConfig(
             train_num_rays_per_batch=4096,
             eval_num_rays_per_batch=4096,
             camera_optimizer=CameraOptimizerConfig(
-                mode="SO3xR3", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+                mode="SO3xR3",
+                optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2),
             ),
             # Large dataset, so using prior values from VariableResDataManager.
             train_num_images_to_sample_from=40,
@@ -505,7 +561,8 @@ method_configs["neus"] = TrainerConfig(
             train_num_rays_per_batch=1024,
             eval_num_rays_per_batch=1024,
             camera_optimizer=CameraOptimizerConfig(
-                mode="off", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+                mode="off",
+                optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2),
             ),
         ),
         model=NeuSModelConfig(eval_num_rays_per_chunk=1024),
@@ -534,12 +591,13 @@ method_configs["neus-facto"] = TrainerConfig(
     mixed_precision=False,
     pipeline=VanillaPipelineConfig(
         datamanager=VanillaDataManagerConfig(
-            _target=VanillaDataManager[SDFDataset],
+            # _target=VanillaDataManager[SDFDataset],
             dataparser=SDFStudioDataParserConfig(),
             train_num_rays_per_batch=2048,
             eval_num_rays_per_batch=2048,
             camera_optimizer=CameraOptimizerConfig(
-                mode="SO3xR3", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+                mode="SO3xR3",
+                optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2),
             ),
         ),
         model=NeuSFactoModelConfig(
@@ -609,7 +667,10 @@ all_methods, all_descriptions = sort_methods(all_methods, all_descriptions)
 
 # Register all possible external methods which can be installed with Nerfstudio
 all_methods, all_descriptions = merge_methods(
-    all_methods, all_descriptions, *sort_methods(*get_external_methods()), overwrite=False
+    all_methods,
+    all_descriptions,
+    *sort_methods(*get_external_methods()),
+    overwrite=False,
 )
 
 AnnotatedBaseConfigUnion = tyro.conf.SuppressFixed[  # Don't show unparseable (fixed) arguments in helptext.

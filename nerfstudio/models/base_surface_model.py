@@ -24,11 +24,6 @@ from typing import Any, Dict, List, Literal, Tuple, Type, cast
 
 import torch
 import torch.nn.functional as F
-from torch.nn import Parameter
-from torchmetrics.functional import structural_similarity_index_measure
-from torchmetrics.image import PeakSignalNoiseRatio
-from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
-
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.field_components.encodings import NeRFEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
@@ -54,6 +49,11 @@ from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
 from nerfstudio.utils.math import normalized_depth_scale_and_shift
+from nerfstudio.utils.rich_utils import CONSOLE
+from torch.nn import Parameter
+from torchmetrics.functional import structural_similarity_index_measure
+from torchmetrics.image import PeakSignalNoiseRatio
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 
 @dataclass
@@ -132,10 +132,18 @@ class SurfaceModel(Model):
             )
         elif self.config.background_model == "mlp":
             position_encoding = NeRFEncoding(
-                in_dim=3, num_frequencies=10, min_freq_exp=0.0, max_freq_exp=9.0, include_input=True
+                in_dim=3,
+                num_frequencies=10,
+                min_freq_exp=0.0,
+                max_freq_exp=9.0,
+                include_input=True,
             )
             direction_encoding = NeRFEncoding(
-                in_dim=3, num_frequencies=4, min_freq_exp=0.0, max_freq_exp=3.0, include_input=True
+                in_dim=3,
+                num_frequencies=4,
+                min_freq_exp=0.0,
+                max_freq_exp=3.0,
+                include_input=True,
             )
 
             self.field_background = NeRFField(
@@ -163,7 +171,8 @@ class SurfaceModel(Model):
         # losses
         self.rgb_loss = L1Loss()
         self.eikonal_loss = MSELoss()
-        self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        # self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        self.depth_loss = MSELoss()
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
@@ -210,7 +219,8 @@ class SurfaceModel(Model):
 
         # shortcuts
         field_outputs: Dict[FieldHeadNames, torch.Tensor] = cast(
-            Dict[FieldHeadNames, torch.Tensor], samples_and_field_outputs["field_outputs"]
+            Dict[FieldHeadNames, torch.Tensor],
+            samples_and_field_outputs["field_outputs"],
         )
         ray_samples = samples_and_field_outputs["ray_samples"]
         weights = samples_and_field_outputs["weights"]
@@ -312,24 +322,32 @@ class SurfaceModel(Model):
                     F.binary_cross_entropy(weights_sum, fg_label) * self.config.fg_mask_loss_mult
                 )
 
-            # monocular normal loss
-            if "normal" in batch and self.config.mono_normal_loss_mult > 0.0:
-                normal_gt = batch["normal"].to(self.device)
-                normal_pred = outputs["normal"]
-                loss_dict["normal_loss"] = (
-                    monosdf_normal_loss(normal_pred, normal_gt) * self.config.mono_normal_loss_mult
-                )
+            # # monocular normal loss
+            # if "normal" in batch and self.config.mono_normal_loss_mult > 0.0:
+            #     normal_gt = batch["normal"].to(self.device)
+            #     normal_pred = outputs["normal"]
+            #     loss_dict["normal_loss"] = (
+            #         monosdf_normal_loss(normal_pred, normal_gt) * self.config.mono_normal_loss_mult
+            #     )
 
-            # monocular depth loss
-            if "depth" in batch and self.config.mono_depth_loss_mult > 0.0:
-                depth_gt = batch["depth"].to(self.device)[..., None]
-                depth_pred = outputs["depth"]
+            # # monocular depth loss
+            # if "depth" in batch and self.config.mono_depth_loss_mult > 0.0:
+            #     depth_gt = batch["depth"].to(self.device)[..., None]
+            #     depth_pred = outputs["depth"]
 
-                mask = torch.ones_like(depth_gt).reshape(1, 32, -1).bool()
-                loss_dict["depth_loss"] = (
-                    self.depth_loss(depth_pred.reshape(1, 32, -1), (depth_gt * 50 + 0.5).reshape(1, 32, -1), mask)
-                    * self.config.mono_depth_loss_mult
-                )
+            #     mask = torch.ones_like(depth_gt).reshape(1, 32, -1).bool()
+            #     # CONSOLE.print("depth_pred : ", depth_pred[0:30, :])
+            #     # CONSOLE.print("depth_gt : ", depth_gt[0:30, :])
+            #     loss_dict["depth_loss"] = (
+            #         self.depth_loss(
+            #             depth_pred,
+            #             # (depth_gt * 50 + 0.5).reshape(1, 32, -1),
+            #             depth_gt,
+            #             # mask,
+            #         )
+            #         * self.config.mono_depth_loss_mult
+            #     )
+            #     # CONSOLE.print("depth loss : ", loss_dict["depth_loss"])
 
         return loss_dict
 

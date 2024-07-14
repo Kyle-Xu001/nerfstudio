@@ -22,10 +22,9 @@ from typing import List, Literal, Optional, Tuple
 import numpy as np
 import torch
 from jaxtyping import Float
+from nerfstudio.utils.misc import torch_compile
 from numpy.typing import NDArray
 from torch import Tensor
-
-from nerfstudio.utils.misc import torch_compile
 
 _EPS = np.finfo(float).eps * 4.0
 

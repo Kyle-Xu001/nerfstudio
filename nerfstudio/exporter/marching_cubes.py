@@ -18,6 +18,7 @@ isosurfaces
 """
 
 from typing import Callable, List, Optional, Tuple, Union
+from nerfstudio.utils.rich_utils import CONSOLE
 
 import numpy as np
 import torch
@@ -95,6 +96,7 @@ def evaluate_multiresolution_sdf(
     for pid, pts in enumerate(points_pyramid):
         coarse_n = pts.shape[-1]
         pts = pts.reshape(3, -1).permute(1, 0).contiguous()
+        CONSOLE.print("pts : ", pts.size())
 
         if mask is None:
             # Only evaluate SDF
@@ -105,13 +107,18 @@ def evaluate_multiresolution_sdf(
                     pts_sdf[valid_mask] = evaluate(pts[valid_mask].contiguous())
             else:
                 pts_sdf = evaluate(pts)
+                CONSOLE.print("Tensor shape: ", pts_sdf.size())
         else:
             mask = mask.reshape(-1)
+            CONSOLE.print("Mask shape : ", mask.size())
+            CONSOLE.print("pts shape : ", pts.size())
             pts_to_eval = pts[mask]
+            CONSOLE.print("pts_to_eval shape : ", pts_to_eval.size())
 
             if pts_to_eval.shape[0] > 0:
                 pts_sdf_eval = evaluate(pts_to_eval.contiguous())
                 assert pts_sdf is not None
+                CONSOLE.print("pts_sdf_eval shape : ", pts_sdf_eval.size())
                 pts_sdf[mask] = pts_sdf_eval
 
         if pid < 3:

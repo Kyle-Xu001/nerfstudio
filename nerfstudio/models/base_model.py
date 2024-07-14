@@ -24,15 +24,15 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
-from torch import nn
-from torch.nn import Parameter
-
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.configs.base_config import InstantiateConfig
 from nerfstudio.configs.config_utils import to_immutable_dict
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.model_components.scene_colliders import NearFarCollider
+from nerfstudio.utils.rich_utils import CONSOLE
+from torch import nn
+from torch.nn import Parameter
 
 
 # Model related configs
@@ -105,7 +105,8 @@ class Model(nn.Module):
         if self.config.enable_collider:
             assert self.config.collider_params is not None
             self.collider = NearFarCollider(
-                near_plane=self.config.collider_params["near_plane"], far_plane=self.config.collider_params["far_plane"]
+                near_plane=self.config.collider_params["near_plane"],
+                far_plane=self.config.collider_params["far_plane"],
             )
 
     @abstractmethod
@@ -197,6 +198,7 @@ class Model(nn.Module):
             RGBA image.
         """
         accumulation_name = output_name.replace("rgb", "accumulation")
+
         if (
             not hasattr(self, "renderer_rgb")
             or not hasattr(self.renderer_rgb, "background_color")
@@ -204,11 +206,13 @@ class Model(nn.Module):
         ):
             raise NotImplementedError(f"get_rgba_image is not implemented for model {self.__class__.__name__}")
         rgb = outputs[output_name]
-        if self.renderer_rgb.background_color == "random":  # type: ignore
+        # if self.renderer_rgb.background_color == "random":  # type: ignore
+        if True:
             acc = outputs[accumulation_name]
             if acc.dim() < rgb.dim():
                 acc = acc.unsqueeze(-1)
             return torch.cat((rgb / acc.clamp(min=1e-10), acc), dim=-1)
+        CONSOLE.print(torch.cat((rgb, torch.ones_like(rgb[..., :1])), dim=-1))
         return torch.cat((rgb, torch.ones_like(rgb[..., :1])), dim=-1)
 
     @abstractmethod

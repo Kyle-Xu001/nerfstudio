@@ -235,11 +235,10 @@ class Nerfstudio(DataParser):
             orientation_method = self.config.orientation_method
 
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
-        # poses[:, 0:3, 1:3] *= -1
         poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
             poses,
             method=orientation_method,
-            center_method="none",
+            center_method=self.config.center_method,
         )
 
         # Scale poses
@@ -261,7 +260,6 @@ class Nerfstudio(DataParser):
         # in x,y,z order
         # assumes that the scene is centered at the origin
         aabb_scale = self.config.scene_scale
-        aabb_scale = 70
         scene_box = SceneBox(
             aabb=torch.tensor(
                 [
@@ -327,9 +325,9 @@ class Nerfstudio(DataParser):
             image_filenames=image_filenames,
             cameras=cameras,
             scene_box=scene_box,
-            # mask_filenames=mask_filenames if len(mask_filenames) > 0 else None,
-            # dataparser_scale=scale_factor,
-            # dataparser_transform=transform_matrix,
+            mask_filenames=mask_filenames if len(mask_filenames) > 0 else None,
+            dataparser_scale=scale_factor,
+            dataparser_transform=transform_matrix,
             metadata={
                 "depth_filenames": depth_filenames if len(depth_filenames) > 0 else None,
                 "depth_unit_scale_factor": self.config.depth_unit_scale_factor,

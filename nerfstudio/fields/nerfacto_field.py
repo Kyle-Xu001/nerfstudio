@@ -20,8 +20,6 @@ Field for compound nerf model, adds scene contraction and image embeddings to in
 from typing import Dict, Literal, Optional, Tuple
 
 import torch
-from torch import Tensor, nn
-
 from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
@@ -38,6 +36,8 @@ from nerfstudio.field_components.field_heads import (
 from nerfstudio.field_components.mlp import MLP
 from nerfstudio.field_components.spatial_distortions import SpatialDistortion
 from nerfstudio.fields.base_field import Field, get_normalized_directions
+from nerfstudio.utils.rich_utils import CONSOLE
+from torch import Tensor, nn
 
 
 class NerfactoField(Field):
@@ -123,7 +123,11 @@ class NerfactoField(Field):
         )
 
         self.position_encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=2, min_freq_exp=0, max_freq_exp=2 - 1, implementation=implementation
+            in_dim=3,
+            num_frequencies=2,
+            min_freq_exp=0,
+            max_freq_exp=2 - 1,
+            implementation=implementation,
         )
 
         self.mlp_base_grid = HashEncoding(
@@ -174,7 +178,8 @@ class NerfactoField(Field):
                 implementation=implementation,
             )
             self.field_head_semantics = SemanticFieldHead(
-                in_dim=self.mlp_semantics.get_out_dim(), num_classes=num_semantic_classes
+                in_dim=self.mlp_semantics.get_out_dim(),
+                num_classes=num_semantic_classes,
             )
 
         # predicted normals
@@ -246,11 +251,13 @@ class NerfactoField(Field):
         else:
             if self.use_average_appearance_embedding:
                 embedded_appearance = torch.ones(
-                    (*directions.shape[:-1], self.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.appearance_embedding_dim),
+                    device=directions.device,
                 ) * self.embedding_appearance.mean(dim=0)
             else:
                 embedded_appearance = torch.zeros(
-                    (*directions.shape[:-1], self.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.appearance_embedding_dim),
+                    device=directions.device,
                 )
 
         # transients
@@ -274,7 +281,8 @@ class NerfactoField(Field):
             if not self.pass_semantic_gradients:
                 semantics_input = semantics_input.detach()
 
-            x = self.mlp_semantics(semantics_input).view(*outputs_shape, -1).to(directions)
+            x = self.mlp_semantics(semantics_input).view(*outputs_shape, -1)
+            x = x.to(directions)
             outputs[FieldHeadNames.SEMANTICS] = self.field_head_semantics(x)
 
         # predicted normals

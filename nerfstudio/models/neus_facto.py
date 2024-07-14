@@ -21,6 +21,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Type
+from matplotlib import pyplot as plt
+import mlflow
+from nerfstudio.utils.rich_utils import CONSOLE
 
 import numpy as np
 import torch
@@ -183,6 +186,17 @@ class NeuSFactoModel(NeuSModel):
             field_outputs[FieldHeadNames.ALPHA]
         )
         bg_transmittance = transmittance[:, -1, :]
+
+        # CONSOLE.print(field_outputs[FieldHeadNames.SDF].size())
+        # CONSOLE.print(weights.size())
+
+        # fig, ax = plt.subplots()
+        # ax.plot(field_outputs[FieldHeadNames.SDF][0].detach().cpu().reshape((48,)), marker=".", label="sdf")
+        # ax.plot(weights[0].detach().cpu().reshape((48,)), marker=".", label="weights")
+        # fig.legend()
+        # mlflow.log_figure(
+        #     fig, "weights_sdf_" + str(field_outputs[FieldHeadNames.SDF].detach().cpu().numpy()[0, 0, 0]) + ".png"
+        # )
 
         weights_list.append(weights)
         ray_samples_list.append(ray_samples)

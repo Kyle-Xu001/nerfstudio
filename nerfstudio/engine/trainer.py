@@ -26,14 +26,26 @@ from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Tuple, Type, cast
 
+import mlflow
 import torch
+import yaml
+
+# from azureml.fsspec import AzureMachineLearningFileSystem
 from nerfstudio.configs.experiment_config import ExperimentConfig
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
-from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
+from nerfstudio.engine.callbacks import (
+    TrainingCallback,
+    TrainingCallbackAttributes,
+    TrainingCallbackLocation,
+)
 from nerfstudio.engine.optimizers import Optimizers
 from nerfstudio.pipelines.base_pipeline import VanillaPipeline
 from nerfstudio.utils import profiler, writer
-from nerfstudio.utils.decorators import check_eval_enabled, check_main_thread, check_viewer_enabled
+from nerfstudio.utils.decorators import (
+    check_eval_enabled,
+    check_main_thread,
+    check_viewer_enabled,
+)
 from nerfstudio.utils.misc import step_check
 from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.utils.writer import EventName, TimeWriter
@@ -144,6 +156,7 @@ class Trainer:
                 'test': loads train/test datasets into memory
                 'inference': does not load any dataset into memory
         """
+        CONSOLE.print("Set up pipeline")
         self.pipeline = self.config.pipeline.setup(
             device=self.device,
             test_mode=test_mode,
@@ -151,6 +164,7 @@ class Trainer:
             local_rank=self.local_rank,
             grad_scaler=self.grad_scaler,
         )
+        CONSOLE.print("Pipeline set up")
         self.optimizers = self.setup_optimizers()
 
         # set up viewer if enabled
@@ -186,6 +200,8 @@ class Trainer:
         self._check_viewer_warnings()
 
         self._load_checkpoint()
+
+        self._load_saved_checkpoint()
 
         self.callbacks = self.pipeline.get_training_callbacks(
             TrainingCallbackAttributes(
@@ -231,7 +247,6 @@ class Trainer:
     def train(self) -> None:
         """Train the model."""
         assert self.pipeline.datamanager.train_dataset is not None, "Missing DatsetInputs"
-
         # don't want to call save_dataparser_transform if pipeline's datamanager does not have a dataparser
         if isinstance(self.pipeline.datamanager, VanillaDataManager):
             self.pipeline.datamanager.train_dataparser_outputs.save_dataparser_transform(
@@ -242,7 +257,7 @@ class Trainer:
         with TimeWriter(writer, EventName.TOTAL_TRAIN_TIME):
             num_iterations = self.config.max_num_iterations
             step = 0
-            for step in range(self._start_step, self._start_step + num_iterations):
+            for step in range(self._start_step, num_iterations):
                 while self.training_state == "paused":
                     time.sleep(0.01)
                 with self.train_lock:
@@ -254,10 +269,8 @@ class Trainer:
                             callback.run_callback_at_location(
                                 step, location=TrainingCallbackLocation.BEFORE_TRAIN_ITERATION
                             )
-
                         # time the forward pass
                         loss, loss_dict, metrics_dict = self.train_iteration(step)
-
                         # training callbacks after the training iteration
                         for callback in self.callbacks:
                             callback.run_callback_at_location(
@@ -296,7 +309,27 @@ class Trainer:
                     self.eval_iteration(step)
 
                 if step_check(step, self.config.steps_per_save):
+                    CONSOLE.print("Model saved")
                     self.save_checkpoint(step)
+
+                    model_path = self.checkpoint_dir
+                    job_name = str(model_path.parents[7])
+                    # CONSOLE.print(job_name)
+                    # p = self.checkpoint_dir.parents[7]
+                    # for i in p.glob("**/*"):
+                    #     CONSOLE.print(i)
+
+                    # Get model state
+                    checkpoint_path = list(Path(job_name).rglob("*.ckpt"))
+                    CONSOLE.print("model saved:", checkpoint_path)
+
+                    # if step == 200:
+                    #     dict = mlflow.pytorch.load_state_dict(
+                    #         "/mnt/azureml/cr/j/afabf8795e4948678199ebf9939c6293/exe/wd/" + f"step-{100:09d}.ckpt"
+                    #     )
+                    #     CONSOLE.print(dict)
+                    if step == 500:
+                        self._load_saved_checkpoint()
 
                 writer.write_out_storage()
 
@@ -430,6 +463,46 @@ class Trainer:
         else:
             CONSOLE.print("No Nerfstudio checkpoint to load, so training from scratch.")
 
+    def _load_saved_checkpoint(self) -> None:
+        """Helper function to load pipeline and optimizer from prespecified checkpoint"""
+        # p = self.checkpoint_dir.parents[11]
+
+        # # uri = "azureml://subscriptions/f3da0ca2-a9b5-4b60-869b-a8965b820e42/resourcegroups/RG_New_Technologies_DEV/workspaces/building-mind-workspace/"
+        # # fs = AzureMachineLearningFileSystem(uri)
+
+        # print("is dir: ", p.is_dir())
+        # for i in p.glob("**/*"):
+        #     CONSOLE.print(i)
+        model_path = self.checkpoint_dir.parents[7]
+        # job_name = str(model_path)
+        # CONSOLE.print(job_name)
+        # if job_name[-2] == "_":
+        #     try_number = int(job_name[-1])
+        #     if try_number > 2:
+        #         model_path = Path(str(model_path).replace("_" + str(try_number), "_" + str(try_number - 1)))
+        #     else:
+        #         model_path = Path(str(model_path).replace("_" + str(try_number), ""))
+        #     # model_path = model_path.parents[3]
+        #     CONSOLE.print(model_path)
+        #     CONSOLE.print(model_path.is_dir())
+
+        # Get model state
+        checkpoint_path = list(model_path.rglob("*.ckpt"))
+        CONSOLE.print(checkpoint_path)
+        if len(checkpoint_path) == 0:
+            CONSOLE.print("No model was saved at ", checkpoint_path)
+            return
+        loaded_state = torch.load(checkpoint_path[-1], map_location="cpu")
+
+        self._start_step = loaded_state["step"] + 1
+        # load the checkpoints for pipeline, optimizers, and gradient scalar
+        self.pipeline.load_pipeline(loaded_state["pipeline"], loaded_state["step"])
+        self.optimizers.load_optimizers(loaded_state["optimizers"])
+        if "schedulers" in loaded_state and self.config.load_scheduler:
+            self.optimizers.load_schedulers(loaded_state["schedulers"])
+        self.grad_scaler.load_state_dict(loaded_state["scalers"])
+        CONSOLE.print(f"Done loading Nerfstudio checkpoint from {checkpoint_path[-1]}")
+
     @check_main_thread
     def save_checkpoint(self, step: int) -> None:
         """Save the model and optimizers
@@ -440,7 +513,35 @@ class Trainer:
         # possibly make the checkpoint directory
         if not self.checkpoint_dir.exists():
             self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        # possibly delete old checkpoints
+        if self.config.save_only_latest_checkpoint:
+            # delete everything else in the checkpoint folder
+            for f in self.checkpoint_dir.parents[7].rglob("*.ckpt"):
+                f.unlink()
+
         # save the checkpoint
+        # ckpt_path: Path = Path("./") / f"step-{step:09d}.ckpt"
+        # CONSOLE.print("Saved at: ", ckpt_path.parents[0])
+        # mlflow.pytorch.log_state_dict(
+        #     {
+        #         "step": step,
+        #         "pipeline": self.pipeline.module.state_dict()  # type: ignore
+        #         if hasattr(self.pipeline, "module")
+        #         else self.pipeline.state_dict(),
+        #         "optimizers": {k: v.state_dict() for (k, v) in self.optimizers.optimizers.items()},
+        #         "schedulers": {k: v.state_dict() for (k, v) in self.optimizers.schedulers.items()},
+        #         "scalers": self.grad_scaler.state_dict(),
+        #     },
+        #     f"./step-{step:09d}.ckpt",
+        # )
+        # mlflow.log_artifact(dict_pipeline, str(Path("./") / f"step-{step:09d}.ckpt"))
+
+        # dict = mlflow.pytorch.load_state_dict(
+        #     "https://buildingmindwo2762394811.blob.core.windows.net/azureml/ExperimentRun/dcid.mini-scannetpp-scene-1-semantic-sdf-on-mono-sdf-12-01-2024-184120/step-000000600.ckpt"
+        # )
+        # CONSOLE.print(dict)
+
         ckpt_path: Path = self.checkpoint_dir / f"step-{step:09d}.ckpt"
         torch.save(
             {
@@ -454,12 +555,6 @@ class Trainer:
             },
             ckpt_path,
         )
-        # possibly delete old checkpoints
-        if self.config.save_only_latest_checkpoint:
-            # delete everything else in the checkpoint folder
-            for f in self.checkpoint_dir.glob("*"):
-                if f != ckpt_path:
-                    f.unlink()
 
     @profiler.time_function
     def train_iteration(self, step: int) -> TRAIN_INTERATION_OUTPUT:

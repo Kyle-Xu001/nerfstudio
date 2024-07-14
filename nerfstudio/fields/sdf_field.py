@@ -24,9 +24,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from jaxtyping import Float
-from torch import Tensor, nn
-from torch.nn.parameter import Parameter
-
 from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.field_components.embedding import Embedding
 from nerfstudio.field_components.encodings import NeRFEncoding
@@ -34,6 +31,9 @@ from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SpatialDistortion
 from nerfstudio.fields.base_field import Field, FieldConfig
 from nerfstudio.utils.external import tcnn
+from nerfstudio.utils.rich_utils import CONSOLE
+from torch import Tensor, nn
+from torch.nn.parameter import Parameter
 
 
 class LearnedVariance(nn.Module):
@@ -89,7 +89,7 @@ class SDFFieldConfig(FieldConfig):
     """Whether to use multi-resolution feature grids"""
     divide_factor: float = 2.0
     """Normalization factor for multi-resolution grids"""
-    beta_init: float = 0.1
+    beta_init: float = 0.8
     """Init learnable beta value for transformation of sdf to density"""
     encoding_type: Literal["hash", "periodic", "tensorf_vm"] = "hash"
     num_levels: int = 16
@@ -162,11 +162,19 @@ class SDFField(Field):
 
         # we concat inputs position ourselves
         self.position_encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=6, min_freq_exp=0.0, max_freq_exp=5.0, include_input=False
+            in_dim=3,
+            num_frequencies=6,
+            min_freq_exp=0.0,
+            max_freq_exp=5.0,
+            include_input=False,
         )
 
         self.direction_encoding = NeRFEncoding(
-            in_dim=3, num_frequencies=4, min_freq_exp=0.0, max_freq_exp=3.0, include_input=True
+            in_dim=3,
+            num_frequencies=4,
+            min_freq_exp=0.0,
+            max_freq_exp=3.0,
+            include_input=True,
         )
 
         # initialize geometric network
@@ -205,6 +213,14 @@ class SDFField(Field):
         if self.use_grid_feature:
             assert self.spatial_distortion is not None, "spatial distortion must be provided when using grid feature"
 
+        self.previous_feature_test = None
+        self.test_positions = None
+
+        self.encoding_save = None
+        self.pe_save = None
+        self.outputs_save = None
+        self.last_weights = None
+
     def initialize_geo_layers(self) -> None:
         """
         Initialize layers for geometric network (sdf)
@@ -227,10 +243,18 @@ class SDFField(Field):
             if self.config.geometric_init:
                 if layer == self.num_layers - 2:
                     if not self.config.inside_outside:
-                        torch.nn.init.normal_(lin.weight, mean=np.sqrt(np.pi) / np.sqrt(dims[layer]), std=0.0001)
+                        torch.nn.init.normal_(
+                            lin.weight,
+                            mean=np.sqrt(np.pi) / np.sqrt(dims[layer]),
+                            std=0.0001,
+                        )
                         torch.nn.init.constant_(lin.bias, -self.config.bias)
                     else:
-                        torch.nn.init.normal_(lin.weight, mean=-np.sqrt(np.pi) / np.sqrt(dims[layer]), std=0.0001)
+                        torch.nn.init.normal_(
+                            lin.weight,
+                            mean=-np.sqrt(np.pi) / np.sqrt(dims[layer]),
+                            std=0.0001,
+                        )
                         torch.nn.init.constant_(lin.bias, self.config.bias)
                 elif layer == 0:
                     torch.nn.init.constant_(lin.bias, 0.0)
@@ -263,6 +287,23 @@ class SDFField(Field):
         else:
             feature = torch.zeros_like(inputs[:, :1].repeat(1, self.encoding.n_output_dims))
 
+        #################
+        if self.test_positions is None:
+            self.test_positions = inputs
+        self.test_positions = self.test_positions.to(torch.device("cuda:0"))
+        # with torch.no_grad():
+        #     positions_test = self.spatial_distortion(self.test_positions)
+        #     # map range [-2, 2] to [0, 1]
+        #     positions_test = (positions_test + 2.0) / 4.0
+        #     feature_test = self.encoding(positions_test)
+        # if self.previous_feature_test is not None:
+        #     CONSOLE.print(
+        #         "is encoding freezed : ",
+        #         torch.equal(feature_test, self.previous_feature_test),
+        #     )
+        # self.previous_feature_test = feature_test
+        #################
+
         pe = self.position_encoding(inputs)
 
         inputs = torch.cat((inputs, pe, feature), dim=-1)
@@ -270,6 +311,7 @@ class SDFField(Field):
         # Pass through layers
         outputs = inputs
 
+        # with torch.no_grad():
         for layer in range(0, self.num_layers - 1):
             lin = getattr(self, "glin" + str(layer))
 
@@ -280,6 +322,62 @@ class SDFField(Field):
 
             if layer < self.num_layers - 2:
                 outputs = self.softplus(outputs)
+
+        # Check if network is freeze
+        # if self.test_positions is None:
+        #     self.test_positions = inputs
+        # self.test_positions = self.test_positions.to(torch.device("cuda:0"))
+        # with torch.no_grad():
+        #     if self.encoding_save is not None and self.pe_save is not None and self.outputs_save is not None:
+        #         self.encoding_save = self.encoding_save.to(torch.device("cuda:0"))
+        #         self.pe_save = self.pe_save.to(torch.device("cuda:0"))
+        #         self.outputs_save = self.outputs_save.to(torch.device("cuda:0"))
+        #     if self.last_weights is not None:
+        #         self.last_weights = self.last_weights.to(torch.device("cuda:0"))
+
+        #     positions_test = self.spatial_distortion(self.test_positions)
+        #     # map range [-2, 2] to [0, 1]
+        #     positions_test = (positions_test + 2.0) / 4.0
+        #     feature_test = self.encoding(positions_test)
+
+        #     pe = self.position_encoding(self.test_positions)
+
+        #     inputs = torch.cat((self.test_positions, pe, feature_test), dim=-1)
+        #     # Pass through layers
+        #     outputs2 = inputs
+
+        #     for layer in range(0, self.num_layers - 1):
+        #         lin = getattr(self, "glin" + str(layer))
+
+        #         if layer in self.skip_in:
+        #             outputs2 = torch.cat([outputs2, inputs], 1) / np.sqrt(2)
+
+        #         outputs2 = lin(outputs2)
+
+        #         if layer < self.num_layers - 2:
+        #             outputs2 = self.softplus(outputs2)
+
+        #     weights = getattr(self, "glin1").weight
+        #     if (
+        #         self.outputs_save is not None
+        #         and self.pe_save is not None
+        #         and self.encoding_save is not None
+        #         and self.last_weights is not None
+        #     ):
+        #         CONSOLE.print("outputs freeze : ", torch.equal(outputs2, self.outputs_save))
+        #         CONSOLE.print("encoding freeze : ", torch.equal(feature_test, self.encoding_save))
+        #         CONSOLE.print("pe freeze : ", torch.equal(inputs, self.pe_save))
+        #         CONSOLE.print("weights freeze : ", torch.equal(weights, self.last_weights))
+        #         CONSOLE.print("")
+        #     for layer in range(0, self.num_layers - 1):
+        #         lin = getattr(self, "glin" + str(layer))
+        #         for parameter in lin.parameters():
+        #             CONSOLE.print("layer: ", parameter.requires_grad)
+        #     self.pe_save = inputs
+        #     self.encoding_save = feature_test
+        #     self.outputs_save = outputs2
+        #     self.last_weights = weights
+
         return outputs
 
     # TODO: fix ... in shape annotations.
@@ -364,11 +462,13 @@ class SDFField(Field):
         else:
             if self.use_average_appearance_embedding:
                 embedded_appearance = torch.ones(
-                    (*directions.shape[:-1], self.config.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.config.appearance_embedding_dim),
+                    device=directions.device,
                 ) * self.embedding_appearance.mean(dim=0)
             else:
                 embedded_appearance = torch.zeros(
-                    (*directions.shape[:-1], self.config.appearance_embedding_dim), device=directions.device
+                    (*directions.shape[:-1], self.config.appearance_embedding_dim),
+                    device=directions.device,
                 )
 
         hidden_input = torch.cat(
@@ -420,7 +520,12 @@ class SDFField(Field):
             sdf, geo_feature = torch.split(hidden_output, [1, self.config.geo_feat_dim], dim=-1)
         d_output = torch.ones_like(sdf, requires_grad=False, device=sdf.device)
         gradients = torch.autograd.grad(
-            outputs=sdf, inputs=inputs, grad_outputs=d_output, create_graph=True, retain_graph=True, only_inputs=True
+            outputs=sdf,
+            inputs=inputs,
+            grad_outputs=d_output,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
         )[0]
 
         rgb = self.get_colors(inputs, directions_flat, gradients, geo_feature, camera_indices)
@@ -446,7 +551,10 @@ class SDFField(Field):
         return outputs
 
     def forward(
-        self, ray_samples: RaySamples, compute_normals: bool = False, return_alphas: bool = False
+        self,
+        ray_samples: RaySamples,
+        compute_normals: bool = False,
+        return_alphas: bool = False,
     ) -> Dict[FieldHeadNames, Tensor]:
         """Evaluates the field at points along the ray.
 

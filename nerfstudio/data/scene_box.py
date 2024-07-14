@@ -18,6 +18,7 @@ Dataset input structures.
 
 from dataclasses import dataclass
 from typing import Union, Tuple
+from nerfstudio.utils.rich_utils import CONSOLE
 import viser.transforms as vtf
 
 import torch
@@ -63,6 +64,8 @@ class SceneBox:
             aabb: the axis-aligned bounding box
         """
         aabb_lengths = aabb[1] - aabb[0]
+        CONSOLE.print(aabb)
+        CONSOLE.print(aabb_lengths)
         normalized_positions = (positions - aabb[0]) / aabb_lengths
         return normalized_positions
 

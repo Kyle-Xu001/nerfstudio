@@ -17,6 +17,7 @@ Semantic dataset.
 """
 
 from typing import Dict
+from nerfstudio.utils.rich_utils import CONSOLE
 
 import torch
 
@@ -32,7 +33,10 @@ class SemanticDataset(InputDataset):
         dataparser_outputs: description of where and how to read input images.
     """
 
-    exclude_batch_keys_from_device = InputDataset.exclude_batch_keys_from_device + ["mask", "semantics"]
+    exclude_batch_keys_from_device = InputDataset.exclude_batch_keys_from_device + [
+        "mask",
+        "semantics",
+    ]
 
     def __init__(self, dataparser_outputs: DataparserOutputs, scale_factor: float = 1.0):
         super().__init__(dataparser_outputs, scale_factor)
@@ -41,13 +45,17 @@ class SemanticDataset(InputDataset):
         self.mask_indices = torch.tensor(
             [self.semantics.classes.index(mask_class) for mask_class in self.semantics.mask_classes]
         ).view(1, 1, -1)
+        CONSOLE.print("here 1")
 
     def get_metadata(self, data: Dict) -> Dict:
         # handle mask
         filepath = self.semantics.filenames[data["image_idx"]]
         semantic_label, mask = get_semantics_and_mask_tensors_from_path(
-            filepath=filepath, mask_indices=self.mask_indices, scale_factor=self.scale_factor
+            filepath=filepath,
+            mask_indices=self.mask_indices,
+            scale_factor=self.scale_factor,
         )
         if "mask" in data.keys():
             mask = mask & data["mask"]
+
         return {"mask": mask, "semantics": semantic_label}

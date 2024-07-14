@@ -159,6 +159,7 @@ def generate_point_cloud(
 
             # Filter points with opacity lower than 0.5
             mask = rgba[..., -1] > 0.5
+            CONSOLE.print("number of points : ", rgba[..., -1])
             point = point[mask]
             view_direction = view_direction[mask]
             rgb = rgba[mask][..., :3]

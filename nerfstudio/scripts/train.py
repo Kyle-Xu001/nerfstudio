@@ -50,6 +50,7 @@ import socket
 import traceback
 from datetime import timedelta
 from typing import Any, Callable, Literal, Optional
+from nerfstudio.utils.io import load_from_json
 
 import numpy as np
 import torch
@@ -205,7 +206,16 @@ def launch(
             _distributed_worker,
             nprocs=num_devices_per_machine,
             join=False,
-            args=(main_func, world_size, num_devices_per_machine, machine_rank, dist_url, config, timeout, device_type),
+            args=(
+                main_func,
+                world_size,
+                num_devices_per_machine,
+                machine_rank,
+                dist_url,
+                config,
+                timeout,
+                device_type,
+            ),
         )
         # process_context won't be None because join=False, so it's okay to assert this
         # for Pylance reasons
@@ -225,7 +235,6 @@ def launch(
 
 def main(config: TrainerConfig) -> None:
     """Main function."""
-
     if config.data:
         CONSOLE.log("Using --data alias for --data.pipeline.datamanager.data")
         config.pipeline.datamanager.data = config.data

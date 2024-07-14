@@ -19,6 +19,7 @@ Encoding functions
 import itertools
 from abc import abstractmethod
 from typing import Literal, Optional, Sequence
+from nerfstudio.utils.rich_utils import CONSOLE
 
 import numpy as np
 import torch

@@ -23,11 +23,6 @@ from typing import Dict, List, Tuple, Type
 
 import numpy as np
 import torch
-from torch.nn import Parameter
-from torchmetrics.functional import structural_similarity_index_measure
-from torchmetrics.image import PeakSignalNoiseRatio
-from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
-
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.data.dataparsers.base_dataparser import Semantics
 from nerfstudio.engine.callbacks import (
@@ -52,6 +47,11 @@ from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.models.base_model import Model
 from nerfstudio.models.nerfacto import NerfactoModelConfig
 from nerfstudio.utils import colormaps
+from nerfstudio.utils.rich_utils import CONSOLE
+from torch.nn import Parameter
+from torchmetrics.functional import structural_similarity_index_measure
+from torchmetrics.image import PeakSignalNoiseRatio
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 
 @dataclass
@@ -79,6 +79,10 @@ class SemanticNerfWModel(Model):
         self.semantics = metadata["semantics"]
         super().__init__(config=config, **kwargs)
         self.colormap = self.semantics.colors.clone().detach().to(self.device)
+        self.color_mapping = {
+            tuple(np.round(np.array(color), 3)): index
+            for index, color in enumerate(metadata["semantics"].colors.tolist())
+        }
 
     def populate_modules(self):
         """Set the fields and modules."""
@@ -254,9 +258,19 @@ class SemanticNerfWModel(Model):
         else:
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
 
+        GT_segmentation = torch.Tensor(
+            [
+                self.color_mapping[tuple(np.round(np.array(color) / 255, 3))]
+                for color in list(batch["semantics"][..., 0][:, 0:3])
+            ]
+        )
+
         # semantic loss
         loss_dict["semantics_loss"] = self.config.semantic_loss_weight * self.cross_entropy_loss(
-            outputs["semantics"], batch["semantics"][..., 0].long().to(self.device)
+            outputs["semantics"],
+            GT_segmentation.long().to(self.device)
+            # outputs["semantics_colormap"],
+            # torch.Tensor.float(batch["semantics"][..., 0][:, 0:3]).to(self.device),
         )
         return loss_dict
 
@@ -294,7 +308,11 @@ class SemanticNerfWModel(Model):
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
         metrics_dict["lpips"] = float(lpips)
 
-        images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
+        images_dict = {
+            "img": combined_rgb,
+            "accumulation": combined_acc,
+            "depth": combined_depth,
+        }
 
         for i in range(self.config.num_proposal_iterations):
             key = f"prop_depth_{i}"

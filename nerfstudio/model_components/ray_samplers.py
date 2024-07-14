@@ -22,9 +22,8 @@ from typing import Any, Callable, List, Optional, Protocol, Tuple, Union
 import torch
 from jaxtyping import Float
 from nerfacc import OccGridEstimator
-from torch import Tensor, nn
-
 from nerfstudio.cameras.rays import Frustums, RayBundle, RaySamples
+from torch import Tensor, nn
 
 
 class Sampler(nn.Module):

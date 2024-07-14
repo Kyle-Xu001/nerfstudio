@@ -24,21 +24,9 @@ from pathlib import Path
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Type, Union, cast
 
+import mlflow
 import torch
 import torch.distributed as dist
-from PIL import Image
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    TextColumn,
-    TimeElapsedColumn,
-)
-from torch import nn
-from torch.nn import Parameter
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda.amp.grad_scaler import GradScaler
-
 from nerfstudio.configs import base_config as cfg
 from nerfstudio.data.datamanagers.base_datamanager import (
     DataManager,
@@ -48,6 +36,19 @@ from nerfstudio.data.datamanagers.base_datamanager import (
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import profiler
+from nerfstudio.utils.rich_utils import CONSOLE
+from PIL import Image
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from torch import nn
+from torch.cuda.amp.grad_scaler import GradScaler
+from torch.nn import Parameter
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 def module_wrapper(ddp_or_model: Union[DDP, Model]) -> Model:
@@ -184,7 +185,10 @@ class Pipeline(nn.Module):
     @abstractmethod
     @profiler.time_function
     def get_average_eval_image_metrics(
-        self, step: Optional[int] = None, output_path: Optional[Path] = None, get_std: bool = False
+        self,
+        step: Optional[int] = None,
+        output_path: Optional[Path] = None,
+        get_std: bool = False,
     ):
         """Iterate over all the images in the eval dataset and get the average.
 
@@ -261,7 +265,10 @@ class VanillaPipeline(Pipeline):
         self.config = config
         self.test_mode = test_mode
         self.datamanager: DataManager = config.datamanager.setup(
-            device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
+            device=device,
+            test_mode=test_mode,
+            world_size=world_size,
+            local_rank=local_rank,
         )
         self.datamanager.to(device)
         # TODO(ethan): get rid of scene_bounds from the model
@@ -278,7 +285,10 @@ class VanillaPipeline(Pipeline):
 
         self.world_size = world_size
         if world_size > 1:
-            self._model = typing.cast(Model, DDP(self._model, device_ids=[local_rank], find_unused_parameters=True))
+            self._model = typing.cast(
+                Model,
+                DDP(self._model, device_ids=[local_rank], find_unused_parameters=True),
+            )
             dist.barrier(device_ids=[local_rank])
 
     @property
@@ -298,6 +308,7 @@ class VanillaPipeline(Pipeline):
         ray_bundle, batch = self.datamanager.next_train(step)
         model_outputs = self._model(ray_bundle)  # train distributed data parallel model if world_size > 1
         metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
+        # mlflow.log_metrics(metrics_dict)
 
         if self.config.datamanager.camera_optimizer is not None:
             camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group
@@ -309,8 +320,8 @@ class VanillaPipeline(Pipeline):
                 metrics_dict["camera_opt_rotation"] = (
                     self.datamanager.get_param_groups()[camera_opt_param_group][0].data[:, 3:].norm()
                 )
-
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        # mlflow.log_metrics(loss_dict)
 
         return model_outputs, loss_dict, metrics_dict
 
@@ -358,7 +369,10 @@ class VanillaPipeline(Pipeline):
 
     @profiler.time_function
     def get_average_eval_image_metrics(
-        self, step: Optional[int] = None, output_path: Optional[Path] = None, get_std: bool = False
+        self,
+        step: Optional[int] = None,
+        output_path: Optional[Path] = None,
+        get_std: bool = False,
     ):
         """Iterate over all the images in the eval dataset and get the average.
 
@@ -382,7 +396,10 @@ class VanillaPipeline(Pipeline):
             transient=True,
         ) as progress:
             task = progress.add_task("[green]Evaluating all eval images...", total=num_images)
-            for camera_ray_bundle, batch in self.datamanager.fixed_indices_eval_dataloader:
+            for (
+                camera_ray_bundle,
+                batch,
+            ) in self.datamanager.fixed_indices_eval_dataloader:
                 # time this the following line
                 inner_start = time()
                 height, width = camera_ray_bundle.shape
