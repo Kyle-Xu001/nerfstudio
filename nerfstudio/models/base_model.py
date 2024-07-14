@@ -33,6 +33,7 @@ from nerfstudio.configs.config_utils import to_immutable_dict
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.model_components.scene_colliders import NearFarCollider
+from nerfstudio.utils.rich_utils import CONSOLE
 
 
 # Model related configs
@@ -204,7 +205,9 @@ class Model(nn.Module):
         ):
             raise NotImplementedError(f"get_rgba_image is not implemented for model {self.__class__.__name__}")
         rgb = outputs[output_name]
-        if self.renderer_rgb.background_color == "random":  # type: ignore
+        # if self.renderer_rgb.background_color == "random":  # type: ignore
+        CONSOLE.print("base model: rgba modification")
+        if True:
             acc = outputs[accumulation_name]
             if acc.dim() < rgb.dim():
                 acc = acc.unsqueeze(-1)

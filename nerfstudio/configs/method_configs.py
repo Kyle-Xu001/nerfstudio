@@ -38,6 +38,7 @@ from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataPars
 from nerfstudio.data.dataparsers.phototourism_dataparser import PhototourismDataParserConfig
 from nerfstudio.data.dataparsers.sdfstudio_dataparser import SDFStudioDataParserConfig
 from nerfstudio.data.dataparsers.sitcoms3d_dataparser import Sitcoms3DDataParserConfig
+from nertstudio.data.dataparsers.semantic_nerf_dataparser import SemanticNeRFDataParserConfig
 from nerfstudio.data.datasets.depth_dataset import DepthDataset
 from nerfstudio.data.datasets.sdf_dataset import SDFDataset
 from nerfstudio.data.datasets.semantic_dataset import SemanticDataset
@@ -72,6 +73,7 @@ descriptions = {
     "instant-ngp-bounded": "Implementation of Instant-NGP. Recommended for bounded real and synthetic scenes",
     "mipnerf": "High quality model for bounded scenes. (slow)",
     "semantic-nerfw": "Predicts semantic segmentations and filters out transient objects.",
+    "smantic-nerfw": "Predicts semantic segmentations and filters out transient objects.",
     "vanilla-nerf": "Original NeRF model. (slow)",
     "tensorf": "tensorf",
     "dnerf": "Dynamic-NeRF model. (slow)",
@@ -318,6 +320,35 @@ method_configs["semantic-nerfw"] = TrainerConfig(
         datamanager=VanillaDataManagerConfig(
             _target=VanillaDataManager[SemanticDataset],
             dataparser=Sitcoms3DDataParserConfig(),
+            train_num_rays_per_batch=4096,
+            eval_num_rays_per_batch=8192,
+        ),
+        model=SemanticNerfWModelConfig(eval_num_rays_per_chunk=1 << 16),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 16),
+    vis="viewer",
+)
+
+method_configs["semantic-nerf"] = TrainerConfig(
+    method_name="semantic-nerf",
+    steps_per_eval_batch=500,
+    steps_per_save=2000,
+    max_num_iterations=30000,
+    mixed_precision=True,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            _target=VanillaDataManager[SemanticDataset],
+            dataparser=SemanticNeRFDataParserConfig(),
             train_num_rays_per_batch=4096,
             eval_num_rays_per_batch=8192,
         ),

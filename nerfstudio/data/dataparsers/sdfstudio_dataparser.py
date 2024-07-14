@@ -31,6 +31,8 @@ from nerfstudio.data.dataparsers.base_dataparser import (
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils.io import load_from_json
 
+from nerfstudio.utils.rich_utils import CONSOLE
+
 
 @dataclass
 class SDFStudioDataParserConfig(DataParserConfig):
@@ -111,7 +113,8 @@ class SDFStudio(DataParser):
         camera_to_worlds = torch.stack(camera_to_worlds)
 
         # Convert from COLMAP's/OPENCV's camera coordinate system to nerfstudio
-        camera_to_worlds[:, 0:3, 1:3] *= -1
+        # camera_to_worlds[:, 0:3, 1:3] *= -1 // cxu
+        CONSOLE.log("sdfstudio dataparser: camera_to_worlds cooridnate conversion")
 
         if self.config.auto_orient:
             camera_to_worlds, transform = camera_utils.auto_orient_and_center_poses(
@@ -121,11 +124,19 @@ class SDFStudio(DataParser):
             )
 
         # scene box from meta data
-        meta_scene_box = meta["scene_box"]
-        aabb = torch.tensor(meta_scene_box["aabb"], dtype=torch.float32)
+        # meta_scene_box = meta["scene_box"]
+        # aabb = torch.tensor(meta_scene_box["aabb"], dtype=torch.float32)
+        # scene_box = SceneBox(
+        #     aabb=aabb,
+        # )
+        aabb_scale = 50
         scene_box = SceneBox(
-            aabb=aabb,
+            aabb=torch.tensor(
+                [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]],
+                dtype=torch.float32,
+            )
         )
+        CONSOLE.log("sdfstudio dataparser: scene box", scene_box)
 
         height, width = meta["height"], meta["width"]
         cameras = Cameras(

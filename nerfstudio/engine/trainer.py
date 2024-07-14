@@ -151,6 +151,7 @@ class Trainer:
             local_rank=self.local_rank,
             grad_scaler=self.grad_scaler,
         )
+        CONSOLE.print("engine/trainer.py: Pipeline set up")
         self.optimizers = self.setup_optimizers()
 
         # set up viewer if enabled
@@ -445,9 +446,11 @@ class Trainer:
         torch.save(
             {
                 "step": step,
-                "pipeline": self.pipeline.module.state_dict()  # type: ignore
-                if hasattr(self.pipeline, "module")
-                else self.pipeline.state_dict(),
+                "pipeline": (
+                    self.pipeline.module.state_dict()  # type: ignore
+                    if hasattr(self.pipeline, "module")
+                    else self.pipeline.state_dict()
+                ),
                 "optimizers": {k: v.state_dict() for (k, v) in self.optimizers.optimizers.items()},
                 "schedulers": {k: v.state_dict() for (k, v) in self.optimizers.schedulers.items()},
                 "scalers": self.grad_scaler.state_dict(),

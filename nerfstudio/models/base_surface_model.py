@@ -54,6 +54,7 @@ from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
 from nerfstudio.utils.math import normalized_depth_scale_and_shift
+from nerfstudio.utils.rich_utils import CONSOLE
 
 
 @dataclass
@@ -163,7 +164,9 @@ class SurfaceModel(Model):
         # losses
         self.rgb_loss = L1Loss()
         self.eikonal_loss = MSELoss()
-        self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        # self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        self.depth_loss = MSELoss()
+        CONSOLE.print("surface model: depth loss changed to mse loss")
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)

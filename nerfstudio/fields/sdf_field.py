@@ -89,7 +89,7 @@ class SDFFieldConfig(FieldConfig):
     """Whether to use multi-resolution feature grids"""
     divide_factor: float = 2.0
     """Normalization factor for multi-resolution grids"""
-    beta_init: float = 0.1
+    beta_init: float = 0.8
     """Init learnable beta value for transformation of sdf to density"""
     encoding_type: Literal["hash", "periodic", "tensorf_vm"] = "hash"
     num_levels: int = 16

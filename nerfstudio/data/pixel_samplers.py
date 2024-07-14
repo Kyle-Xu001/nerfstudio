@@ -34,6 +34,7 @@ from typing import (
 from nerfstudio.configs.base_config import (
     InstantiateConfig,
 )
+from nerfstudio.utils.rich_utils import CONSOLE
 
 
 @dataclass
@@ -97,6 +98,9 @@ class PixelSampler:
             nonzero_indices = torch.nonzero(mask[..., 0], as_tuple=False)
             chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
             indices = nonzero_indices[chosen_indices]
+            CONSOLE.log(f"Pixel Sampler: Shape from: {indices.shape}")
+            indices = nonzero_indices[chosen_indices][:, 0:3]  # cxu
+            CONSOLE.log(f"Pixel Sampler: to: {indices.shape}")
         else:
             indices = torch.floor(
                 torch.rand((batch_size, 3), device=device)

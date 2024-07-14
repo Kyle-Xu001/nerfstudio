@@ -79,6 +79,10 @@ class SemanticNerfWModel(Model):
         self.semantics = metadata["semantics"]
         super().__init__(config=config, **kwargs)
         self.colormap = self.semantics.colors.clone().detach().to(self.device)
+        self.color_mapping = {
+            tuple(np.round(np.array(color), 3)): index
+            for index, color in enumerate(metadata["semantics"].colors.tolist())
+        }
 
     def populate_modules(self):
         """Set the fields and modules."""
@@ -255,8 +259,17 @@ class SemanticNerfWModel(Model):
             loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
 
         # semantic loss
+        gt_mask = torch.Tensor(
+            [
+                self.color_mapping[tuple(np.round(np.array(color) / 255, 3))]
+                for color in list(batch["semantics"][..., 0][:, 0:3])
+            ]
+        )
+        # loss_dict["semantics_loss"] = self.config.semantic_loss_weight * self.cross_entropy_loss(
+        #     outputs["semantics"], batch["semantics"][..., 0].long().to(self.device)
+        # )
         loss_dict["semantics_loss"] = self.config.semantic_loss_weight * self.cross_entropy_loss(
-            outputs["semantics"], batch["semantics"][..., 0].long().to(self.device)
+            outputs["semantics"], gt_mask.long().to(self.device)
         )
         return loss_dict
 
