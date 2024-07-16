@@ -54,7 +54,7 @@ class TrainerConfig(ExperimentConfig):
 
     _target: Type = field(default_factory=lambda: Trainer)
     """target class to instantiate"""
-    steps_per_save: int = 1000
+    steps_per_save: int = 10000
     """Number of steps between saves."""
     steps_per_eval_batch: int = 500
     """Number of steps between randomly sampled batches of rays."""
@@ -68,7 +68,7 @@ class TrainerConfig(ExperimentConfig):
     """Whether or not to use mixed precision for training."""
     use_grad_scaler: bool = False
     """Use gradient scaler even if the automatic mixed precision is disabled."""
-    save_only_latest_checkpoint: bool = True
+    save_only_latest_checkpoint: bool = False
     """Whether to only save the latest checkpoint or all checkpoints."""
     # optional parameters if we want to resume training
     load_dir: Optional[Path] = None

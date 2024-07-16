@@ -41,6 +41,7 @@ from nerfstudio.model_components.losses import (
     MSELoss,
     ScaleAndShiftInvariantLoss,
     monosdf_normal_loss,
+    SensorDepthLoss,
 )
 from nerfstudio.model_components.ray_samplers import LinearDisparitySampler
 from nerfstudio.model_components.renderers import (
@@ -90,6 +91,14 @@ class SurfaceModelConfig(ModelConfig):
     """Total variational loss multiplier"""
     overwrite_near_far_plane: bool = False
     """whether to use near and far collider from command line"""
+    sensor_depth_truncation: float = 0.015
+    """Sensor depth trunction, default value is 0.015 which means 5cm with a rough scale value 0.3 (0.015 = 0.05 * 0.3)"""
+    sensor_depth_l1_loss_mult: float = 0.0
+    """Sensor depth L1 loss multiplier."""
+    sensor_depth_freespace_loss_mult: float = 0.0
+    """Sensor depth free space loss multiplier."""
+    sensor_depth_sdf_loss_mult: float = 0.0
+    """Sensor depth sdf loss multiplier."""
 
 
 class SurfaceModel(Model):
@@ -117,7 +126,7 @@ class SurfaceModel(Model):
         )
 
         # Collider
-        self.collider = AABBBoxCollider(self.scene_box, near_plane=0.05)
+        self.collider = AABBBoxCollider(self.scene_box, near_plane=5)
 
         # command line near and far has highest priority
         if self.config.overwrite_near_far_plane:
@@ -167,6 +176,7 @@ class SurfaceModel(Model):
         # self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
         self.depth_loss = MSELoss()
         CONSOLE.print("surface model: depth loss changed to mse loss")
+        self.sensor_depth_loss = SensorDepthLoss(truncation=self.config.sensor_depth_truncation)
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
@@ -334,6 +344,19 @@ class SurfaceModel(Model):
                     * self.config.mono_depth_loss_mult
                 )
 
+            if "sensor_depth" in batch and (
+                self.config.sensor_depth_l1_loss_mult > 0.0
+                or self.config.sensor_depth_freespace_loss_mult > 0.0
+                or self.config.sensor_depth_sdf_loss_mult > 0.0
+            ):
+                l1_loss, free_space_loss, sdf_loss = self.sensor_depth_loss(batch, outputs)
+
+                loss_dict["sensor_l1_loss"] = l1_loss * self.config.sensor_depth_l1_loss_mult
+                loss_dict["sensor_freespace_loss"] = free_space_loss * self.config.sensor_depth_freespace_loss_mult
+                loss_dict["sensor_sdf_loss"] = sdf_loss * self.config.sensor_depth_sdf_loss_mult
+        # CONSOLE.print("Basic Surface: Losses:")
+        # for loss in loss_dict.keys():
+        #     CONSOLE.print(loss, ":", loss_dict[loss])
         return loss_dict
 
     def get_metrics_dict(self, outputs, batch) -> Dict[str, torch.Tensor]:
