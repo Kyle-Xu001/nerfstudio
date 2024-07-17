@@ -131,7 +131,7 @@ class ViewerConfig(PrintableConfig):
     """Filename to use for the log file."""
     websocket_port: Optional[int] = None
     """The websocket port to connect to. If None, find an available port."""
-    websocket_port_default: int = 7007
+    websocket_port_default: int = 7070
     """The default websocket port to connect to if websocket_port is not specified"""
     websocket_host: str = "0.0.0.0"
     """The host address to bind the websocket server to."""
