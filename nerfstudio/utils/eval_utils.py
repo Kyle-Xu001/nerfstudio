@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
+sys.path.append(".")
 from pathlib import Path
 from typing import Literal, Optional, Tuple
 
@@ -31,10 +32,8 @@ from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from rebel_nerf.semantic_sdf.base_models.config_semantic_sdf_on_vol_sdf import (  # noqa: E402, E501
-    SemanticSDFonVolSDFTrackConfig,
-)
-
+from rebel_nerf.semantic_sdf.base_models.config_semantic_sdf_on_vol_sdf import SemanticSDFonVolSDFTrackConfig
+from rebel_nerf.semantic_sdf.base_models.config_semantic_sdf import SemanticSDFTrackConfig
 
 def eval_load_checkpoint(config: TrainerConfig, pipeline: Pipeline) -> Tuple[Path, int]:
     ## TODO: ideally eventually want to get this to be the same as whatever is used to load train checkpoint too
@@ -92,8 +91,13 @@ def eval_setup(
     config = yaml.load(config_path.read_text(), Loader=yaml.Loader)
     assert isinstance(config, TrainerConfig)
 
-    # config.pipeline.datamanager._target = all_methods[config.method_name].pipeline.datamanager._target
-    config.pipeline.datamanager._target = SemanticSDFonVolSDFTrackConfig.pipeline.datamanager._target
+    if config.method_name == "semantic-sdf":
+        config.pipeline.datamanager._target = SemanticSDFTrackConfig.pipeline.datamanager._target
+    elif config.method_name == "semantic-sdf-on-vol-sdf":
+        config.pipeline.datamanager._target = SemanticSDFonVolSDFTrackConfig.pipeline.datamanager._target
+    else:
+        config.pipeline.datamanager._target = all_methods[config.method_name].pipeline.datamanager._target
+        
     if eval_num_rays_per_chunk:
         config.pipeline.model.eval_num_rays_per_chunk = eval_num_rays_per_chunk
 

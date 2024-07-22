@@ -110,9 +110,9 @@ class ExportPointCloud(Exporter):
     """Name of the RGB output."""
     use_bounding_box: bool = True
     """Only query points within the bounding box"""
-    bounding_box_min: Optional[Tuple[float, float, float]] = (-1, -1, -1)
+    bounding_box_min: Optional[Tuple[float, float, float]] = (-15, -15, -15)
     """Minimum of the bounding box, used if use_bounding_box is True."""
-    bounding_box_max: Optional[Tuple[float, float, float]] = (1, 1, 1)
+    bounding_box_max: Optional[Tuple[float, float, float]] = (15, 15, 15)
     """Maximum of the bounding box, used if use_bounding_box is True."""
 
     obb_center: Optional[Tuple[float, float, float]] = None
@@ -382,9 +382,9 @@ class ExportMarchingCubesMesh(Exporter):
     """Marching cube resolution."""
     simplify_mesh: bool = False
     """Whether to simplify the mesh."""
-    bounding_box_min: Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    bounding_box_min: Tuple[float, float, float] = (-15.0, -15.0, -15.0)
     """Minimum of the bounding box."""
-    bounding_box_max: Tuple[float, float, float] = (1.0, 1.0, 1.0)
+    bounding_box_max: Tuple[float, float, float] = (15.0, 15.0, 15.0)
     """Maximum of the bounding box."""
     px_per_uv_triangle: int = 4
     """Number of pixels per UV triangle."""
