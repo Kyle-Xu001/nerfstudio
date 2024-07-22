@@ -92,8 +92,10 @@ def eval_setup(
     assert isinstance(config, TrainerConfig)
 
     if config.method_name == "semantic-sdf":
+        print("Using SemanticSDFTrackConfig")
         config.pipeline.datamanager._target = SemanticSDFTrackConfig.pipeline.datamanager._target
     elif config.method_name == "semantic-sdf-on-vol-sdf":
+        print("Using SemanticSDFonVolSDFTrackConfig")
         config.pipeline.datamanager._target = SemanticSDFonVolSDFTrackConfig.pipeline.datamanager._target
     else:
         config.pipeline.datamanager._target = all_methods[config.method_name].pipeline.datamanager._target

@@ -404,7 +404,7 @@ def export_textured_mesh(
     with torch.no_grad():
         outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
     # TODO: this can be done better by using the alpha channel
-    rgb = pipeline.model.get_rgba_image(outputs, "rgb")[..., :3]
+    rgb = pipeline.model.get_rgba_image(outputs, "semantics_colormap")[..., :3]
 
     # save the texture image
     texture_image = rgb.cpu().numpy()
