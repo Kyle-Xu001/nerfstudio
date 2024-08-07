@@ -439,7 +439,7 @@ def get_frustums_mesh_list(
 
 
 def get_frustum_points(
-    frustum: Frustums, opacity: float = 1.0, color: str = "forestgreen", size: float = 5
+    frustum: Frustums, opacity: float = 1.0, color: str = "forestgreen", size: float = 2
 ) -> go.Scatter3d:  # type: ignore
     """Get a set plotly points for frustums centers.
 
@@ -455,6 +455,8 @@ def get_frustum_points(
 
     frustum = frustum.flatten()
     pts = frustum.get_positions()
+    pts = pts.cpu().numpy()
+    pts = pts[::50]
 
     return go.Scatter3d(  # type: ignore
         x=pts[..., 0],
@@ -500,7 +502,31 @@ def get_ray_bundle_lines(
         line=dict(color=color, width=width),
     )
 
+def get_scene_box(length: float, width: float, height: float) -> go.Mesh3d:  # type: ignore
+    """Get a plotly mesh for the scene box.
 
+    Returns:
+        Plotly mesh
+    """
+    x = np.array([-1.0, -1.0, 1.0,  1.0, -1.0, -1.0, 1.0,  1.0])
+    y = np.array([-1.0,  1.0, 1.0, -1.0, -1.0,  1.0, 1.0, -1.0])
+    z = np.array([ 0.0,  0.0, 0.0,  0.0,  1.0,  1.0, 1.0,  1.0])
+
+    pts = np.stack((x, y, z), axis=0)
+    pts[0] *= length
+    pts[1] *= width
+    pts[2] *= height
+
+    return go.Mesh3d(  # type: ignore
+        x=pts[0],
+        y=pts[1],
+        z=pts[2],
+        opacity=0.25,
+        alphahull=0,
+        color="blue",
+        flatshading=True,
+        name="Scene Box",
+    )
 def vis_camera_rays(cameras: Cameras) -> go.Figure:  # type: ignore
     """Visualize camera rays.
 

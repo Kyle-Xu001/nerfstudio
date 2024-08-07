@@ -42,7 +42,6 @@ from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
 from nerfstudio.utils.math import normalized_depth_scale_and_shift
 
-
 @dataclass
 class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
