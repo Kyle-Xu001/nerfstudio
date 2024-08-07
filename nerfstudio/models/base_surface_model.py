@@ -48,9 +48,9 @@ class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
 
     _target: Type = field(default_factory=lambda: SurfaceModel)
-    near_plane: float = 0.05
+    near_plane: float = 10
     """How far along the ray to start sampling."""
-    far_plane: float = 4.0
+    far_plane: float = 100
     """How far along the ray to stop sampling."""
     far_plane_bg: float = 1000.0
     """How far along the ray to stop sampling of the background model."""
@@ -68,13 +68,13 @@ class SurfaceModelConfig(ModelConfig):
     """Monocular depth consistency loss multiplier."""
     sdf_field: SDFFieldConfig = field(default_factory=SDFFieldConfig)
     """Config for SDF Field"""
-    background_model: Literal["grid", "mlp", "none"] = "mlp"
+    background_model: Literal["grid", "mlp", "none"] = "none"
     """background models"""
     num_samples_outside: int = 32
     """Number of samples outside the bounding sphere for background"""
     periodic_tvl_mult: float = 0.0
     """Total variational loss multiplier"""
-    overwrite_near_far_plane: bool = False
+    overwrite_near_far_plane: bool = True
     """whether to use near and far collider from command line"""
 
 

@@ -28,6 +28,9 @@ import tyro
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.rich_utils import CONSOLE
 
+import sys
+sys.path.append(".")
+sys.path.append("./rebel_nerf")
 
 @dataclass
 class ComputePSNR:
