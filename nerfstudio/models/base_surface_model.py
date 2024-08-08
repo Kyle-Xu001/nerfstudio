@@ -47,13 +47,13 @@ class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
 
     _target: Type = field(default_factory=lambda: SurfaceModel)
-    near_plane: float = 10
+    near_plane: float = 0.05
     """How far along the ray to start sampling."""
-    far_plane: float = 100
+    far_plane: float = 4.0
     """How far along the ray to stop sampling."""
     far_plane_bg: float = 1000.0
     """How far along the ray to stop sampling of the background model."""
-    background_color: Literal["random", "last_sample", "white", "black"] = "black"
+    background_color: Literal["random", "last_sample", "white", "black"] = "random"
     """Whether to randomize the background color."""
     use_average_appearance_embedding: bool = False
     """Whether to use average appearance embedding or zeros for inference."""
@@ -73,7 +73,7 @@ class SurfaceModelConfig(ModelConfig):
     """Number of samples outside the bounding sphere for background"""
     periodic_tvl_mult: float = 0.0
     """Total variational loss multiplier"""
-    overwrite_near_far_plane: bool = True
+    overwrite_near_far_plane: bool = False
     """whether to use near and far collider from command line"""
 
 
@@ -102,7 +102,7 @@ class SurfaceModel(Model):
         )
 
         # Collider
-        self.collider = AABBBoxCollider(self.scene_box, near_plane=0.05)
+        self.collider = AABBBoxCollider(self.scene_box, near_plane=self.config.near_plane)
 
         # command line near and far has highest priority
         if self.config.overwrite_near_far_plane:

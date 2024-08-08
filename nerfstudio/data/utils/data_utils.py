@@ -52,10 +52,15 @@ def get_semantics_and_mask_tensors_from_path(
         newsize = (int(width * scale_factor), int(height * scale_factor))
         pil_image = pil_image.resize(newsize, resample=Image.Resampling.NEAREST)
     # semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
-    image = np.zeros((pil_image.size[1], pil_image.size[0], 1), dtype=np.uint8)
-    image[:,:,0] = np.array(pil_image)
-    semantics = torch.from_numpy(np.array(image, dtype="int64"))
-    mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
+    # image = np.zeros((pil_image.size[1], pil_image.size[0], 1), dtype=np.uint8)
+    # image[:,:,0] = np.array(pil_image)[:,:,]
+    # semantics = torch.from_numpy(np.array(image, dtype="int64"))
+    # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
+    semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
+    mask = np.all(np.array(pil_image)[:,:,:3] == [0, 0, 0], axis=-1)
+    mask = ~mask
+    mask = torch.from_numpy(mask).unsqueeze(-1)
+    # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
     return semantics, mask
 
 

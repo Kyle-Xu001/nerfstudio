@@ -99,7 +99,7 @@ class PixelSampler:
             torch.rand((batch_size, 3), device=device)
             * torch.tensor([num_images, image_height, image_width], device=device)
         ).long()
-
+        
         if isinstance(mask, torch.Tensor) and not self.config.ignore_mask:
             if self.config.rejection_sample_mask:
                 num_valid = 0
@@ -130,9 +130,10 @@ class PixelSampler:
                     chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
                     indices = nonzero_indices[chosen_indices]
             else:
+                print("Non-rejection sampling")
                 nonzero_indices = torch.nonzero(mask[..., 0], as_tuple=False)
                 chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
-                indices = nonzero_indices[chosen_indices]
+                indices = nonzero_indices[chosen_indices][:,0:3]
 
         return indices
 
