@@ -73,7 +73,7 @@ class SurfaceModelConfig(ModelConfig):
     """Number of samples outside the bounding sphere for background"""
     periodic_tvl_mult: float = 0.0
     """Total variational loss multiplier"""
-    overwrite_near_far_plane: bool = True
+    overwrite_near_far_plane: bool = False
     """whether to use near and far collider from command line"""
 
 
