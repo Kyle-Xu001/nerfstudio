@@ -61,10 +61,12 @@ def get_semantics_and_mask_tensors_from_path(
     # dilate mask
     mask = ~mask
     mask = cv2.dilate(mask.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=5).astype(bool)
-    # # save image
-    # cv2.imwrite("debug/mask.png", mask.astype(np.uint8) * 255)
+    # # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
+    # mask = np.ones((pil_image.size[1], pil_image.size[0], 1), dtype=np.uint8)
+    
+    # # # save image
+    # # cv2.imwrite("debug/mask.png", mask.astype(np.uint8) * 255)
     mask = torch.from_numpy(mask).unsqueeze(-1)
-    # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
     return semantics, mask
 
 
