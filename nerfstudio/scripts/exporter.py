@@ -390,9 +390,9 @@ class ExportMarchingCubesMesh(Exporter):
     """Marching cube resolution."""
     simplify_mesh: bool = False
     """Whether to simplify the mesh."""
-    bounding_box_min: Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    bounding_box_min: Tuple[float, float, float] = (-20.0, -20.0, -5.0)
     """Minimum of the bounding box."""
-    bounding_box_max: Tuple[float, float, float] = (1.0, 1.0, 1.0)
+    bounding_box_max: Tuple[float, float, float] = (20.0, 20.0, 30.0)
     """Maximum of the bounding box."""
     px_per_uv_triangle: int = 4
     """Number of pixels per UV triangle."""

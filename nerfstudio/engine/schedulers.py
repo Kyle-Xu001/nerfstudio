@@ -140,7 +140,6 @@ class ExponentialDecayScheduler(Scheduler):
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=func)
         return scheduler
 
-
 @dataclass
 class CosineDecaySchedulerConfig(SchedulerConfig):
     """Config for cosine decay schedule"""
@@ -172,3 +171,4 @@ class CosineDecayScheduler(Scheduler):
 
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=func)
         return scheduler
+

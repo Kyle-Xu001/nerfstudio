@@ -130,7 +130,6 @@ class PixelSampler:
                     chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
                     indices = nonzero_indices[chosen_indices]
             else:
-                print("Non-rejection sampling")
                 nonzero_indices = torch.nonzero(mask[..., 0], as_tuple=False)
                 chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
                 indices = nonzero_indices[chosen_indices][:,0:3]
