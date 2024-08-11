@@ -47,9 +47,9 @@ class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
 
     _target: Type = field(default_factory=lambda: SurfaceModel)
-    near_plane: float = 10.0
+    near_plane: float = 0.5
     """How far along the ray to start sampling."""
-    far_plane: float = 80.0
+    far_plane: float = 50.0
     """How far along the ray to stop sampling."""
     far_plane_bg: float = 1000.0
     """How far along the ray to stop sampling of the background model."""
