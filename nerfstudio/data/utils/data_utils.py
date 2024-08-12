@@ -54,19 +54,19 @@ def get_semantics_and_mask_tensors_from_path(
     # semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
     # image = np.zeros((pil_image.size[1], pil_image.size[0], 1), dtype=np.uint8)
     # image[:,:,0] = np.array(pil_image)[:,:,]
-    # semantics = torch.from_numpy(np.array(image, dtype="int64"))
-    # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
-    semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
-    mask = np.all(np.array(pil_image)[:,:,:3] == [0, 0, 0], axis=-1)
+    semantics = torch.from_numpy(np.array(image, dtype="int64"))
+    mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
+    # semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
+    # mask = np.all(np.array(pil_image)[:,:,:3] == [0, 0, 0], axis=-1)
     # dilate mask
-    mask = ~mask
-    mask = cv2.dilate(mask.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=5).astype(bool)
+    # mask = ~mask
+    # mask = cv2.dilate(mask.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=5).astype(bool)
     # # mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
     # mask = np.ones((pil_image.size[1], pil_image.size[0], 1), dtype=np.uint8)
     
     # # # save image
     # # cv2.imwrite("debug/mask.png", mask.astype(np.uint8) * 255)
-    mask = torch.from_numpy(mask).unsqueeze(-1)
+    # mask = torch.from_numpy(mask).unsqueeze(-1)
     return semantics, mask
 
 
