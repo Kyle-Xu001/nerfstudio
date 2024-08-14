@@ -75,7 +75,7 @@ class SurfaceModelConfig(ModelConfig):
     """Total variational loss multiplier"""
     overwrite_near_far_plane: bool = False
     """whether to use near and far collider from command line"""
-    sensor_depth_truncation: float = 0.015
+    sensor_depth_truncation: float = 0.03
     """Sensor depth trunction, default value is 0.015 which means 5cm with a rough scale value 0.3 (0.015 = 0.05 * 0.3)"""
     sensor_depth_l1_loss_mult: float = 0.1
     """Sensor depth L1 loss multiplier."""
