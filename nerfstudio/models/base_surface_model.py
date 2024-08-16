@@ -47,11 +47,11 @@ class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
 
     _target: Type = field(default_factory=lambda: SurfaceModel)
-    near_plane: float = 5.0
+    near_plane: float = 3.0
     """How far along the ray to start sampling."""
-    far_plane: float = 50.0
+    far_plane: float = 35.0
     """How far along the ray to stop sampling."""
-    far_plane_bg: float = 1000.0
+    far_plane_bg: float = 100.0
     """How far along the ray to stop sampling of the background model."""
     background_color: Literal["random", "last_sample", "white", "black", "grey"] = "black"
     """Whether to randomize the background color."""
@@ -73,9 +73,9 @@ class SurfaceModelConfig(ModelConfig):
     """Number of samples outside the bounding sphere for background"""
     periodic_tvl_mult: float = 0.0
     """Total variational loss multiplier"""
-    overwrite_near_far_plane: bool = False
+    overwrite_near_far_plane: bool = True
     """whether to use near and far collider from command line"""
-    sensor_depth_truncation: float = 0.03
+    sensor_depth_truncation: float = 0.015
     """Sensor depth trunction, default value is 0.015 which means 5cm with a rough scale value 0.3 (0.015 = 0.05 * 0.3)"""
     sensor_depth_l1_loss_mult: float = 0.1
     """Sensor depth L1 loss multiplier."""
@@ -91,7 +91,6 @@ class SurfaceModel(Model):
     Args:
         config: Base surface model configuration to instantiate model
     """
-
     config: SurfaceModelConfig
 
     def populate_modules(self):
