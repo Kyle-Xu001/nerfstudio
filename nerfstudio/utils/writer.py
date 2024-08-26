@@ -318,6 +318,7 @@ class WandbWriter(Writer):
         import wandb  # wandb is slow to import, so we only import it if we need it.
 
         image = torch.permute(image, (2, 0, 1))
+        image = image.to(torch.float)
         wandb.log({name: wandb.Image(image)}, step=step)
 
     def write_scalar(self, name: str, scalar: Union[float, torch.Tensor], step: int) -> None:
