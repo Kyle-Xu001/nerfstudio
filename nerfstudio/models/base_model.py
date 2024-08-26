@@ -221,8 +221,8 @@ class Model(nn.Module):
         ):
             raise NotImplementedError(f"get_rgba_image is not implemented for model {self.__class__.__name__}")
         rgb = outputs[output_name]
-        # if self.renderer_rgb.background_color == "random":  # type: ignore
-        if True:
+        if self.renderer_rgb.background_color == "random":  # type: ignore
+        # if True:
             acc = outputs[accumulation_name]
             if acc.dim() < rgb.dim():
                 acc = acc.unsqueeze(-1)
