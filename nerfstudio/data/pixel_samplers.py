@@ -104,10 +104,10 @@ class PixelSampler:
             if self.config.rejection_sample_mask:
                 num_valid = 0
                 for _ in range(self.config.max_num_iterations):
-                    c, y, x = (i.flatten() for i in torch.split(indices, 1, dim=-1))
+                    c, y, x = (i.flatten() for i in torch.split(indices[:, 0:3], 1, dim=-1))
                     chosen_indices_validity = mask[..., 0][c, y, x].bool()
                     num_valid = int(torch.sum(chosen_indices_validity).item())
-                    if num_valid >= 0.9 * batch_size: # 90% of the batch is valid cxu
+                    if num_valid == batch_size: # 90% of the batch is valid cxu
                         break
                     else:
                         replacement_indices = (
@@ -116,7 +116,7 @@ class PixelSampler:
                         ).long()
                         indices[~chosen_indices_validity] = replacement_indices
 
-                if num_valid < 0.9 * batch_size: # 90% of the batch is valid cxu
+                if num_valid == batch_size: # 90% of the batch is valid cxu
                     warnings.warn(
                         """
                         Masked sampling failed, mask is either empty or mostly empty.
