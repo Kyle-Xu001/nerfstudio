@@ -40,7 +40,7 @@ class SDFStudioDataParserConfig(DataParserConfig):
     """whether or not to load monocular depth and normal """
     depth_unit_scale_factor: float = 1e-3
     """Scales the depth values to meters. Default value is 0.001 for a millimeter to meter conversion."""
-    include_foreground_mask: bool = False
+    include_foreground_mask: bool = True
     """whether or not to load foreground mask"""
     downscale_factor: int = 1
     scene_scale: float = 2.0

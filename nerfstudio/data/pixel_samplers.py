@@ -45,7 +45,7 @@ class PixelSamplerConfig(InstantiateConfig):
     """Whether to ignore the masks when sampling."""
     fisheye_crop_radius: Optional[float] = None
     """Set to the radius (in pixels) for fisheye cameras."""
-    rejection_sample_mask: bool = False
+    rejection_sample_mask: bool = True
     """Whether or not to use rejection sampling when sampling images with masks"""
     max_num_iterations: int = 100
     """If rejection sampling masks, the maximum number of times to sample"""
@@ -116,7 +116,7 @@ class PixelSampler:
                         ).long()
                         indices[~chosen_indices_validity] = replacement_indices
 
-                if num_valid == batch_size: # 90% of the batch is valid cxu
+                if num_valid != batch_size: # 90% of the batch is valid cxu
                     warnings.warn(
                         """
                         Masked sampling failed, mask is either empty or mostly empty.
