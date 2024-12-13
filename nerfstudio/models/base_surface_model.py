@@ -47,13 +47,13 @@ class SurfaceModelConfig(ModelConfig):
     """Surface Model Config"""
 
     _target: Type = field(default_factory=lambda: SurfaceModel)
-    near_plane: float = 3.0
+    near_plane: float = 0.05
     """How far along the ray to start sampling."""
-    far_plane: float = 35.0
+    far_plane: float = 50.0
     """How far along the ray to stop sampling."""
     far_plane_bg: float = 100.0
     """How far along the ray to stop sampling of the background model."""
-    background_color: Literal["random", "last_sample", "white", "black", "grey"] = "black"
+    background_color: Literal["random", "last_sample", "white", "black", "grey"] = "random"
     """Whether to randomize the background color."""
     use_average_appearance_embedding: bool = False
     """Whether to use average appearance embedding or zeros for inference."""
