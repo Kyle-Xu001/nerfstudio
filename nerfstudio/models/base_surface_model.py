@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 
 from nerfstudio.cameras.rays import RayBundle
+from nerfstudio.data.dataparsers.base_dataparser import Semantics
 from nerfstudio.field_components.encodings import NeRFEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SceneContraction
@@ -263,7 +264,12 @@ class SurfaceModel(Model):
             "directions_norm": ray_bundle.metadata["directions_norm"],
         }
         outputs.update(bg_outputs)
-
+        outputs["semantics"] = self.renderer_semantics(
+            field_outputs[FieldHeadNames.SEMANTICS], weights=outputs["weights"]
+        )
+        semantic_labels = torch.argmax(
+            torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1
+        )
         if self.training:
             grad_points = field_outputs[FieldHeadNames.GRADIENT]
             outputs.update({"eik_grad": grad_points})
@@ -279,6 +285,7 @@ class SurfaceModel(Model):
                 )
         # this is used only in viewer
         outputs["normal_vis"] = (outputs["normal"] + 1.0) / 2.0
+        outputs["semantics_colormap"] = self.colormap.to(self.device)[semantic_labels]
         return outputs
 
     def get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict[str, torch.Tensor]:
@@ -338,7 +345,12 @@ class SurfaceModel(Model):
                 loss_dict["sensor_l1_loss"] = l1_loss * self.config.sensor_depth_l1_loss_mult
                 loss_dict["sensor_freespace_loss"] = free_space_loss * self.config.sensor_depth_freespace_loss_mult
                 loss_dict["sensor_sdf_loss"] = sdf_loss * self.config.sensor_depth_sdf_loss_mult
-
+                
+            if "semantics" in batch:
+                semantic_loss = self.semantic_loss(
+                    outputs["semantics"], batch["semantics"][..., 0].long().to(self.device)
+                )
+                loss_dict["semantics_loss"] = self.config.semantic_loss_weight * semantic_loss
         return loss_dict
 
     def get_metrics_dict(self, outputs, batch) -> Dict[str, torch.Tensor]:
@@ -400,11 +412,16 @@ class SurfaceModel(Model):
         else:
             combined_normal = torch.cat([normal], dim=1)
 
+        if "semantics" in batch:
+            semantic_labels = torch.argmax(
+                torch.nn.functional.softmax(outputs["semantics"], dim=-1), dim=-1
+            )
         images_dict = {
             "img": combined_rgb,
             "accumulation": combined_acc,
             "depth": combined_depth,
             "normal": combined_normal,
+            "semantics_colormap": self.colormap.to(self.device)[semantic_labels],
         }
 
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations

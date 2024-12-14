@@ -28,6 +28,8 @@ from torch import Tensor, nn
 from torch.nn.parameter import Parameter
 
 from nerfstudio.cameras.rays import RaySamples
+from nerfstudio.field_components.field_heads import FieldHeadNames, SemanticFieldHead
+from nerfstudio.field_components.mlp import MLP
 from nerfstudio.field_components.embedding import Embedding
 from nerfstudio.field_components.encodings import NeRFEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
@@ -106,6 +108,12 @@ class SDFFieldConfig(FieldConfig):
     """Whether to use hash encoding"""
     smoothstep: bool = True
     """Whether to use the smoothstep function"""
+    num_semantic_classes: int = 5
+    """Number of classes in the segmentation"""
+    semantic_mlp_number_layers: int = 2
+    """Number of layers for the semantic neural network"""
+    semantic_mlp_layer_width: int = 128
+    """Numbers of neurons in one layer of the semantic MLP"""
 
 
 class SDFField(Field):
@@ -205,6 +213,21 @@ class SDFField(Field):
         if self.use_grid_feature:
             assert self.spatial_distortion is not None, "spatial distortion must be provided when using grid feature"
 
+        self.num_semantic_classes = self.config.num_semantic_classes
+
+        self.mlp_semantic = MLP(
+            in_dim=self.config.geo_feat_dim,
+            layer_width=self.config.semantic_mlp_layer_width,
+            num_layers=self.config.semantic_mlp_number_layers,
+            activation=nn.ReLU(),
+            out_activation=nn.ReLU(),
+        )
+
+        self.field_head_semantic = SemanticFieldHead(
+            in_dim=self.mlp_semantic.get_out_dim(),
+            num_classes=self.num_semantic_classes,
+        )
+        
     def initialize_geo_layers(self) -> None:
         """
         Initialize layers for geometric network (sdf)
@@ -425,10 +448,15 @@ class SDFField(Field):
 
         rgb = self.get_colors(inputs, directions_flat, gradients, geo_feature, camera_indices)
 
+        semantic_input = geo_feature.view(-1, self.config.geo_feat_dim)
+        semantic_output = self.mlp_semantic(semantic_input)
+        semantic = self.field_head_semantic(semantic_output)
+
         rgb = rgb.view(*ray_samples.frustums.directions.shape[:-1], -1)
         sdf = sdf.view(*ray_samples.frustums.directions.shape[:-1], -1)
         gradients = gradients.view(*ray_samples.frustums.directions.shape[:-1], -1)
         normals = torch.nn.functional.normalize(gradients, p=2, dim=-1)
+        semantic = semantic.view(*ray_samples.frustums.directions.shape[:-1], -1)
 
         outputs.update(
             {
@@ -436,6 +464,7 @@ class SDFField(Field):
                 FieldHeadNames.SDF: sdf,
                 FieldHeadNames.NORMALS: normals,
                 FieldHeadNames.GRADIENT: gradients,
+                FieldHeadNames.SEMANTICS: semantic,
             }
         )
 

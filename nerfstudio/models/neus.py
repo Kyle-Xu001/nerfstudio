@@ -21,12 +21,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Type
 
+import numpy as np
+import torch
 from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.model_components.ray_samplers import NeuSSampler
 from nerfstudio.models.base_surface_model import SurfaceModel, SurfaceModelConfig
-
+from nerfstudio.model_components.renderers import SemanticRenderer
 
 @dataclass
 class NeuSModelConfig(SurfaceModelConfig):
@@ -43,6 +45,9 @@ class NeuSModelConfig(SurfaceModelConfig):
     """fixed base variance in NeuS sampler, the inv_s will be base * 2 ** iter during upsample"""
     perturb: bool = True
     """use to use perturb for the sampled points"""
+    semantic_loss_weight: float = 1.0
+    """Factor that multiplies the semantic loss"""
+    semantic_3D_loss_weight: float = 0.01
 
 
 class NeuSModel(SurfaceModel):
@@ -53,6 +58,9 @@ class NeuSModel(SurfaceModel):
     """
 
     config: NeuSModelConfig
+    def __init__(self, config: NeuSModelConfig, metadata: Dict,  **kwargs) -> None:
+        super().__init__(config=config, **kwargs)
+        self.colormap = metadata["semantics"].colors.clone().detach().to(self.device)
 
     def populate_modules(self):
         """Set the fields and modules."""
@@ -67,6 +75,8 @@ class NeuSModel(SurfaceModel):
         )
 
         self.anneal_end = 50000
+        self.renderer_semantics = SemanticRenderer()
+        self.semantic_loss = torch.nn.CrossEntropyLoss(reduction="mean")
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
